@@ -1,0 +1,100 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: MaskTools - Win32 Release--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "F:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP389.tmp" with contents
+[
+/nologo /Zp16 /ML /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "MASKTOOLS_EXPORTS" /D "USE_INFL" /Fp"Release/MaskTools.pch" /YX /Fo"Release/" /Fd"Release/" /FD /c 
+"F:\Progs\MaskTools\MaskedMerge.cpp"
+"F:\Progs\MaskTools\MM_func.cpp"
+"F:\Progs\MaskTools\Inv_func.cpp"
+"F:\Progs\MaskTools\Invert.cpp"
+"F:\Progs\MaskTools\EdgeMask.cpp"
+"F:\Progs\MaskTools\EM_func.cpp"
+"F:\Progs\MaskTools\Bin_func.cpp"
+"F:\Progs\MaskTools\Binarize.cpp"
+"F:\Progs\MaskTools\EXP_func.cpp"
+"F:\Progs\MaskTools\Expand.cpp"
+"F:\Progs\MaskTools\LGC_Func.cpp"
+"F:\Progs\MaskTools\Logic.cpp"
+"F:\Progs\MaskTools\YV12L_Func.cpp"
+"F:\Progs\MaskTools\YV12Layer.cpp"
+"F:\Progs\MaskTools\YV12S_Func.cpp"
+"F:\Progs\MaskTools\YV12Substract.cpp"
+"F:\Progs\MaskTools\Overlay.cpp"
+"F:\Progs\MaskTools\FastFitPlane.cpp"
+"F:\Progs\MaskTools\FFP_Func.cpp"
+"F:\Progs\MaskTools\FitPlane.cpp"
+"F:\Progs\MaskTools\LUT.cpp"
+"F:\Progs\MaskTools\GenericTools.cpp"
+"F:\Progs\MaskTools\Interface.cpp"
+]
+Creating command line "cl.exe @F:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP389.tmp" 
+Creating temporary file "F:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP38A.tmp" with contents
+[
+kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:no /pdb:"Release/MaskTools.pdb" /machine:I386 /out:"F:\Plugins\MaskTools.dll" /implib:"Release/MaskTools.lib" 
+.\Release\MaskedMerge.obj
+.\Release\MM_func.obj
+.\Release\Inv_func.obj
+.\Release\Invert.obj
+.\Release\EdgeMask.obj
+.\Release\EM_func.obj
+.\Release\Bin_func.obj
+.\Release\Binarize.obj
+.\Release\EXP_func.obj
+.\Release\Expand.obj
+.\Release\LGC_Func.obj
+.\Release\Logic.obj
+.\Release\YV12L_Func.obj
+.\Release\YV12Layer.obj
+.\Release\YV12S_Func.obj
+.\Release\YV12Substract.obj
+.\Release\Overlay.obj
+.\Release\FastFitPlane.obj
+.\Release\FFP_Func.obj
+.\Release\FitPlane.obj
+.\Release\LUT.obj
+.\Release\GenericTools.obj
+.\Release\Interface.obj
+.\MaskTools.res
+]
+Creating command line "link.exe @F:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP38A.tmp"
+<h3>Output Window</h3>
+Compiling...
+MaskedMerge.cpp
+MM_func.cpp
+Inv_func.cpp
+Invert.cpp
+EdgeMask.cpp
+EM_func.cpp
+Bin_func.cpp
+Binarize.cpp
+EXP_func.cpp
+Expand.cpp
+LGC_Func.cpp
+Logic.cpp
+YV12L_Func.cpp
+YV12Layer.cpp
+YV12S_Func.cpp
+YV12Substract.cpp
+Overlay.cpp
+FastFitPlane.cpp
+FFP_Func.cpp
+FitPlane.cpp
+LUT.cpp
+GenericTools.cpp
+Interface.cpp
+Linking...
+   Creating library Release/MaskTools.lib and object Release/MaskTools.exp
+
+
+
+<h3>Results</h3>
+MaskTools.dll - 0 error(s), 0 warning(s)
+</pre>
+</body>
+</html>
