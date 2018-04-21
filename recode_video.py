@@ -33,6 +33,13 @@ def main():
     usage = 'Usage: %prog [options]'
     parser = OptionParser(usage=usage)
     parser.add_option(
+        '--audio-channel',
+        choices=['both', 'left', 'right'],
+        default='both',
+        dest='audio_channel',
+        help='Audio channel to use (both, left, right)',
+    )
+    parser.add_option(
         '--dir',
         action='store',
         default='.',
@@ -115,9 +122,17 @@ def main():
             os.remove(input_video + '.lock')
             shutil.move(temp_video_path, input_video)
 
-            cmd = u'{ffmpeg} -i "{input_video}" -c:a copy "{temp_audio_uncompressed}"'.format(
+            if options.audio_channel == 'left':
+                af_option = '-af "pan=mono|c0=c0"'
+            elif options.audio_channel == 'right':
+                af_option = '-af "pan=mono|c0=c1"'
+            else:
+                af_option = ''
+
+            cmd = u'{ffmpeg} -i "{input_video}" -c:a copy {af} "{temp_audio_uncompressed}"'.format(
                 ffmpeg=ffmpeg_path,
                 input_video=input_video,
+                af=af_option,
                 temp_audio_uncompressed=temp_audio_uncompressed,
             )
             subprocess.call(cmd.encode(locale.getpreferredencoding()))
