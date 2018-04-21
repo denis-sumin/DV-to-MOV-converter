@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import errno
 import locale
 import os
 import re
@@ -9,6 +10,18 @@ import subprocess
 import sys
 from optparse import OptionParser
 from subprocess import Popen, PIPE, STDOUT
+
+
+def ensure_dir(path):
+    """
+    os.path.makedirs without EEXIST.
+    Taken from pip.utils
+    """
+    try:
+        os.makedirs(path)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
 
 
 def touch(fname, times=None):
@@ -21,28 +34,28 @@ def main():
     parser = OptionParser(usage=usage)
     parser.add_option(
         '--dir',
-        default='.',
         action='store',
-        type='string',
+        default='.',
         dest='dir',
         help='Path to folder with DV/AVI files',
+        type=str,
     )
-
     options, args = parser.parse_args()
+    working_dir = os.path.normpath(unicode(options.dir.decode(sys.getfilesystemencoding())))
 
-    working_dir = u'' + os.path.normpath(unicode(options.dir.decode(sys.getfilesystemencoding())))
-
-    PATH = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.dirname(os.path.abspath(__file__))
+    ffmpeg_path = os.path.join(script_path, 'bin', 'ffmpeg.exe')
+    x264_path = os.path.join(script_path, 'bin', 'x264.exe')
 
     temp_avs_path = os.path.join(working_dir, 'temp.avs')
 
-    # shutil.copyfile(os.path.join(PATH,'template_temp_file_dss2_tempgaussmc.avs'),'temp.avs')
-    avs_file = open(temp_avs_path, 'w')
-    avs_file.write(r'LoadPlugin("' + PATH + r'\bin\AviSynth_plugins\avss.dll")' + '\n')
-    avs_file.write(r'import("' + PATH + r'\bin\deinterlacers\my_deinterlace.avs")' + '\n')
-    avs_file.write(r'c = DSS2("temp")' + '\n')
-    avs_file.write(r'return c.my_deinterlace()')
-    avs_file.close()
+    with open(temp_avs_path, 'w') as avs_file:
+        avs_dll_path = os.path.join(script_path, 'bin', 'AviSynth_plugins', 'avss.dll')
+        avs_file.write(r'LoadPlugin("{}")'.format(avs_dll_path) + '\n')
+        my_deinterlace_path = os.path.join(script_path, 'bin', 'deinterlacers', 'my_deinterlace.avs')
+        avs_file.write(r'import("{}")'.format(my_deinterlace_path) + '\n')
+        avs_file.write(r'c = DSS2("temp")' + '\n')
+        avs_file.write(r'return c.my_deinterlace()' + '\n')
 
     mov_folder = os.path.join(working_dir, 'mov')
     avi_folder = os.path.join(working_dir, 'avi')
@@ -57,14 +70,10 @@ def main():
         if source_filename.endswith('.avi') or source_filename.endswith('.dv'):
             print(source_filename)
 
-            if not os.path.exists(mov_folder):
-                os.mkdir(mov_folder)
-            if not os.path.exists(avi_folder):
-                os.mkdir(avi_folder)
-            if not os.path.exists(x264_folder):
-                os.mkdir(x264_folder)
-            if not os.path.exists(audio_folder):
-                os.mkdir(audio_folder)
+            ensure_dir(mov_folder)
+            ensure_dir(avi_folder)
+            ensure_dir(x264_folder)
+            ensure_dir(audio_folder)
             try:
                 os.remove(temp_video_without_audio)
             except OSError:
@@ -79,32 +88,51 @@ def main():
             output_video = os.path.join(working_dir, 'mov', filename + '.mov')
             temp_video_path = os.path.join(working_dir, 'temp')
 
-            cmd = u'' + os.path.join(PATH, 'bin', 'ffmpeg.exe') + ' -i "' + input_video + '"'
+            cmd = u'{ffmpeg} -i "{input_video}"'.format(
+                ffmpeg=ffmpeg_path, input_video=input_video)
             p = Popen(cmd.encode(locale.getpreferredencoding()), shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
             output = p.stdout.read()
             pattern = re.compile(r'SAR \d+:\d+')
             match = pattern.findall(output)
-            sar = r''
             if len(match) == 1:
                 sar = match[0].replace(u'SAR ', u'').decode('utf8')
                 sar = r'--sar ' + sar
+            else:
+                sar = r''
 
             shutil.move(input_video, temp_video_path)
             touch(input_video + '.lock')
-            cmd = r'' + os.path.join(PATH, 'bin', 'x264.exe') + \
-                  r' --crf 15 --profile high --preset slow ' + sar + \
-                  r' -o "' + temp_video_without_audio + r'" "' + temp_avs_path + r'"'
+            cmd = (
+                u'{x264} --crf 15 --profile high --preset slow {sar} '
+                u'-o "{temp_video_without_audio}" "{temp_avs_path}"'.format(
+                    x264=x264_path,
+                    sar=sar,
+                    temp_video_without_audio=temp_video_without_audio,
+                    temp_avs_path=temp_avs_path,
+                )
+            )
             subprocess.call(cmd.encode(locale.getpreferredencoding()))
-            os.remove(input_video+'.lock')
+            os.remove(input_video + '.lock')
             shutil.move(temp_video_path, input_video)
 
-            cmd = r'' + os.path.join(PATH, 'bin', 'ffmpeg.exe') + \
-                  r' -i "' + input_video + r'" -c:a copy "' + temp_audio_uncompressed + r'"'
+            cmd = u'{ffmpeg} -i "{input_video}" -c:a copy "{temp_audio_uncompressed}"'.format(
+                ffmpeg=ffmpeg_path,
+                input_video=input_video,
+                temp_audio_uncompressed=temp_audio_uncompressed,
+            )
             subprocess.call(cmd.encode(locale.getpreferredencoding()))
 
-            cmd = u'' + os.path.join(PATH, 'bin', 'ffmpeg.exe') + \
-                  u' -i "' + temp_video_without_audio + u'" -i "' + temp_audio_uncompressed + \
-                  u'" -c:v copy -c:a copy "' + output_video + u'"'
+            cmd = (
+                u'{ffmpeg} '
+                u'-i "{temp_video_without_audio}" '
+                u'-i "{temp_audio_uncompressed}" '
+                u'-c:v copy -c:a copy "{output_video}"'.format(
+                    ffmpeg=ffmpeg_path,
+                    temp_video_without_audio=temp_video_without_audio,
+                    temp_audio_uncompressed=temp_audio_uncompressed,
+                    output_video=output_video,
+                )
+            )
             subprocess.call(cmd.encode(locale.getpreferredencoding()))
 
             os.remove(temp_video_without_audio)
