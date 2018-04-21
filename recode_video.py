@@ -104,10 +104,9 @@ def main():
                 ffmpeg=ffmpeg_path, input_video=input_video)
             p = Popen(cmd.encode(locale.getpreferredencoding()), shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
             output = p.stdout.read()
-            pattern = re.compile(r'SAR \d+:\d+')
-            match = pattern.findall(output)
-            if len(match) == 1:
-                sar = match[0].replace(u'SAR ', u'').decode('utf8')
+            sar_match = re.compile(r'SAR \d+:\d+').findall(output)
+            if len(sar_match) == 1:
+                sar = sar_match[0].replace(u'SAR ', u'').decode('utf8')
                 sar = r'--sar ' + sar
             else:
                 sar = r''
