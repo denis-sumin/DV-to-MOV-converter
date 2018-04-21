@@ -1,15 +1,12 @@
-# -*- coding: utf-8 -*-
-from __future__ import print_function
-
+# coding=utf-8
+import argparse
 import errno
-import locale
 import os
 import re
 import shutil
 import subprocess
 import sys
-from optparse import OptionParser
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import PIPE, Popen, STDOUT
 
 
 def ensure_dir(path):
@@ -25,35 +22,35 @@ def ensure_dir(path):
 
 
 def touch(fname, times=None):
-    with file(fname, 'a'):
+    with open(fname, 'a'):
         os.utime(fname, times)
 
 
 def main():
     usage = 'Usage: %prog [options]'
-    parser = OptionParser(usage=usage)
-    parser.add_option(
+    parser = argparse.ArgumentParser(usage=usage)
+    parser.add_argument(
         '--audio-channel',
         choices=['both', 'left', 'right'],
         default='both',
         dest='audio_channel',
         help='Audio channel to use (both, left, right)',
     )
-    parser.add_option(
+    parser.add_argument(
         '--dir',
         default='.',
         dest='dir',
         help='Path to folder with DV/AVI files',
         type=str,
     )
-    parser.add_option(
+    parser.add_argument(
         '--save-temp',
         action='store_true',
         dest='save_temp_files',
         help='If chosen, temp files are not deleted (for debugging)',
     )
-    options, args = parser.parse_args()
-    working_dir = os.path.normpath(unicode(options.dir.decode(sys.getfilesystemencoding())))
+    args = parser.parse_args()
+    working_dir = os.path.normpath(args.dir)
 
     script_path = os.path.dirname(os.path.abspath(__file__))
     ffmpeg_path = os.path.join(script_path, 'bin', 'ffmpeg.exe')
@@ -62,12 +59,16 @@ def main():
     temp_avs_path = os.path.join(working_dir, 'temp.avs')
 
     with open(temp_avs_path, 'w') as avs_file:
-        avs_dll_path = os.path.join(script_path, 'bin', 'AviSynth_plugins', 'avss.dll')
-        avs_file.write(r'LoadPlugin("{}")'.format(avs_dll_path) + '\n')
-        my_deinterlace_path = os.path.join(script_path, 'bin', 'deinterlacers', 'my_deinterlace.avs')
-        avs_file.write(r'import("{}")'.format(my_deinterlace_path) + '\n')
-        avs_file.write(r'c = DSS2("temp")' + '\n')
-        avs_file.write(r'return c.my_deinterlace()' + '\n')
+        avs_dll_path = os.path.join(
+            script_path, 'bin', 'AviSynth_plugins', 'avss.dll')
+        my_deinterlace_path = os.path.join(
+            script_path, 'bin', 'deinterlacers', 'my_deinterlace.avs')
+        avs_file.write(
+            f'LoadPlugin("{avs_dll_path}")\n'
+            f'import("{my_deinterlace_path}")\n'
+            f'c = DSS2("temp")\n'
+            f'return c.my_deinterlace()\n'
+        )
 
     mov_folder = os.path.join(working_dir, 'mov')
     avi_folder = os.path.join(working_dir, 'avi')
@@ -100,20 +101,19 @@ def main():
             output_video = os.path.join(working_dir, 'mov', filename + '.mov')
             temp_video_path = os.path.join(working_dir, 'temp')
 
-            cmd = u'{ffmpeg} -i "{input_video}"'.format(
-                ffmpeg=ffmpeg_path, input_video=input_video)
-            p = Popen(cmd.encode(locale.getpreferredencoding()), shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
-            output = p.stdout.read()
-            sar_match = re.compile(r'SAR \d+:\d+').findall(output)
-            if len(sar_match) == 1:
-                sar = sar_match[0].replace(u'SAR ', u'').decode('utf8')
-                sar = r'--sar ' + sar
+            cmd = f'{ffmpeg_path} -i "{input_video}"'
+            p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+            output = p.stdout.read().decode()
+            sar_match = re.search(r'SAR (?P<sar>\d+:\d+)', output)
+            if sar_match:
+                sar = sar_match.groupdict()['sar']
+                sar = '--sar ' + sar
             else:
-                sar = r''
+                sar = ''
 
             input_audio_stream_id = ''
             input_acodec = ''
-            if options.audio_channel in ('left', 'right'):
+            if args.audio_channel in ('left', 'right'):
                 audio_match = re.search(
                     r'Stream #(?P<astream>\d+:\d+): Audio: (?P<acodec>\w+)',
                     output)
@@ -132,59 +132,41 @@ def main():
 
             shutil.move(input_video, temp_video_path)
             touch(input_video + '.lock')
-            cmd = (
-                u'{x264} --crf 15 --profile high --preset slow {sar} '
-                u'-o "{temp_video_without_audio}" "{temp_avs_path}"'.format(
-                    x264=x264_path,
-                    sar=sar,
-                    temp_video_without_audio=temp_video_without_audio,
-                    temp_avs_path=temp_avs_path,
-                )
-            )
-            subprocess.call(cmd.encode(locale.getpreferredencoding()))
+            cmd = f'{x264_path} --crf 15 --profile high --preset slow {sar} ' \
+                  f'-o "{temp_video_without_audio}" "{temp_avs_path}"'
+            subprocess.call(cmd)
             os.remove(input_video + '.lock')
             shutil.move(temp_video_path, input_video)
 
-            if options.audio_channel in ('left', 'right'):
+            if args.audio_channel in ('left', 'right'):
                 if input_acodec and input_audio_stream_id:
-                    if options.audio_channel == 'left':
+                    if args.audio_channel == 'left':
                         achannel = 0
-                    elif options.audio_channel == 'right':
+                    elif args.audio_channel == 'right':
                         achannel = 1
                     else:
                         raise RuntimeError('Failed to set achannel')
-                    audio_options = '-map_channel {astream}.{achannel} -c:a {acodec}'.format(
-                        astream=input_audio_stream_id.replace(':', '.'),
-                        achannel=achannel,
-                        acodec=input_acodec)
+                    astream = input_audio_stream_id.replace(':', '.')
+                    audio_options = f'-map_channel {astream}.{achannel} ' \
+                                    f'-c:a {input_acodec}'
                 else:
-                    raise RuntimeError('input_acodec or input_audio_stream_id was not set')
+                    raise RuntimeError(
+                        'input_acodec or input_audio_stream_id was not set')
             else:
                 audio_options = '-c:a copy'
 
-            cmd = u'{ffmpeg} -i "{input_video}" {audio_options} "{temp_audio_uncompressed}"'.format(
-                ffmpeg=ffmpeg_path,
-                input_video=input_video,
-                audio_options=audio_options,
-                temp_audio_uncompressed=temp_audio_uncompressed,
-            )
-            subprocess.call(cmd.encode(locale.getpreferredencoding()))
+            cmd = f'{ffmpeg_path} -i "{input_video}" {audio_options} ' \
+                  f'"{temp_audio_uncompressed}"'
+            subprocess.call(cmd)
 
-            cmd = (
-                u'{ffmpeg} '
-                u'-i "{temp_video_without_audio}" '
-                u'-i "{temp_audio_uncompressed}" '
-                u'-c:v copy -c:a copy "{output_video}"'.format(
-                    ffmpeg=ffmpeg_path,
-                    temp_video_without_audio=temp_video_without_audio,
-                    temp_audio_uncompressed=temp_audio_uncompressed,
-                    output_video=output_video,
-                )
-            )
-            subprocess.call(cmd.encode(locale.getpreferredencoding()))
+            cmd = f'{ffmpeg_path} ' \
+                  f'-i "{temp_video_without_audio}" ' \
+                  f'-i "{temp_audio_uncompressed}" ' \
+                  f'-c:v copy -c:a copy "{output_video}"'
+            subprocess.call(cmd)
 
             shutil.move(input_video, avi_folder)
-            if not options.save_temp_files:
+            if not args.save_temp_files:
                 os.remove(temp_video_without_audio)
                 os.remove(temp_audio_uncompressed)
                 shutil.rmtree(x264_folder)
