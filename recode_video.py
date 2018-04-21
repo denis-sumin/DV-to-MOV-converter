@@ -41,11 +41,16 @@ def main():
     )
     parser.add_option(
         '--dir',
-        action='store',
         default='.',
         dest='dir',
         help='Path to folder with DV/AVI files',
         type=str,
+    )
+    parser.add_option(
+        '--save-temp',
+        action='store_true',
+        dest='save_temp_files',
+        help='If chosen, temp files are not deleted (for debugging)',
     )
     options, args = parser.parse_args()
     working_dir = os.path.normpath(unicode(options.dir.decode(sys.getfilesystemencoding())))
@@ -150,12 +155,12 @@ def main():
             )
             subprocess.call(cmd.encode(locale.getpreferredencoding()))
 
-            os.remove(temp_video_without_audio)
-            os.remove(temp_audio_uncompressed)
             shutil.move(input_video, avi_folder)
-
-            shutil.rmtree(x264_folder)
-            shutil.rmtree(audio_folder)
+            if not options.save_temp_files:
+                os.remove(temp_video_without_audio)
+                os.remove(temp_audio_uncompressed)
+                shutil.rmtree(x264_folder)
+                shutil.rmtree(audio_folder)
 
     os.remove(temp_avs_path)
 
