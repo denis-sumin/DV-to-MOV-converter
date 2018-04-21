@@ -112,6 +112,25 @@ def main():
             else:
                 sar = r''
 
+            input_audio_stream_id = ''
+            input_acodec = ''
+            if options.audio_channel in ('left', 'right'):
+                audio_match = re.search(
+                    r'Stream #(?P<astream>\d+:\d+): Audio: (?P<acodec>\w+)',
+                    output)
+                if audio_match:
+                    audio_match_dict = audio_match.groupdict()
+                    input_audio_stream_id = audio_match_dict['astream']
+                    input_acodec = audio_match_dict['acodec']
+                    if not input_acodec.startswith('pcm'):
+                        print('Audio codec is not pcm_*. Only pcm codecs are '
+                              'supported when manipulating audio channels.')
+                        sys.exit(1)
+                else:
+                    print('Failed to extract audio codec information; '
+                          'it is necessary when manipulating audio channels.')
+                    sys.exit(1)
+
             shutil.move(input_video, temp_video_path)
             touch(input_video + '.lock')
             cmd = (
@@ -127,17 +146,27 @@ def main():
             os.remove(input_video + '.lock')
             shutil.move(temp_video_path, input_video)
 
-            if options.audio_channel == 'left':
-                af_option = '-af "pan=mono|c0=c0"'
-            elif options.audio_channel == 'right':
-                af_option = '-af "pan=mono|c0=c1"'
+            if options.audio_channel in ('left', 'right'):
+                if input_acodec and input_audio_stream_id:
+                    if options.audio_channel == 'left':
+                        achannel = 0
+                    elif options.audio_channel == 'right':
+                        achannel = 1
+                    else:
+                        raise RuntimeError('Failed to set achannel')
+                    audio_options = '-map_channel {astream}.{achannel} -c:a {acodec}'.format(
+                        astream=input_audio_stream_id.replace(':', '.'),
+                        achannel=achannel,
+                        acodec=input_acodec)
+                else:
+                    raise RuntimeError('input_acodec or input_audio_stream_id was not set')
             else:
-                af_option = ''
+                audio_options = '-c:a copy'
 
-            cmd = u'{ffmpeg} -i "{input_video}" -c:a copy {af} "{temp_audio_uncompressed}"'.format(
+            cmd = u'{ffmpeg} -i "{input_video}" {audio_options} "{temp_audio_uncompressed}"'.format(
                 ffmpeg=ffmpeg_path,
                 input_video=input_video,
-                af=af_option,
+                audio_options=audio_options,
                 temp_audio_uncompressed=temp_audio_uncompressed,
             )
             subprocess.call(cmd.encode(locale.getpreferredencoding()))
