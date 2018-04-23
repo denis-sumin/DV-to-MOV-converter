@@ -3,7 +3,8 @@ DV-to-MOV-converter
 
 Python script for high-quality AVI (DV) to MOV recoding based on ffmpeg, x264, 
 avisynth and avs-deinterlacer. To start using the tool, you should install the
-dependencies from the `installers` folder: AviSynth, MatroskaSplitter, and Python 2.7.
+dependencies from the `installers` folder: AviSynth, MatroskaSplitter, and Python 3.6.
+Python >=3.5 is required to run the script.
 
 Usage (assuming you have your `*.dv` or `*.avi` files in `D:\Video` and you 
 downloaded the tool to `D:\recoder`):
