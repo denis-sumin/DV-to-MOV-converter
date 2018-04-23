@@ -65,10 +65,12 @@ def main():
         my_deinterlace_path = os.path.join(
             script_path, 'bin', 'deinterlacers', 'my_deinterlace.avs')
         avs_file.write(
-            f'LoadPlugin("{avs_dll_path}")\n'
-            f'import("{my_deinterlace_path}")\n'
-            f'c = DSS2("temp")\n'
-            f'return c.my_deinterlace()\n'
+            'LoadPlugin("{avs_dll_path}")\n'
+            'import("{my_deinterlace_path}")\n'
+            'c = DSS2("temp")\n'
+            'return c.my_deinterlace()\n'.format(
+                avs_dll_path=avs_dll_path,
+                my_deinterlace_path=my_deinterlace_path)
         )
 
     mov_folder = os.path.join(working_dir, 'mov')
@@ -156,8 +158,12 @@ def main():
                     else:
                         raise RuntimeError('Failed to set achannel')
                     astream = input_audio_stream_id.replace(':', '.')
-                    audio_options = f'-map_channel {astream}.{achannel} ' \
-                                    f'-c:a {input_acodec}'
+                    audio_options = '-map_channel {astream}.{achannel} ' \
+                                    '-c:a {acodec}'.format(
+                        astream=astream,
+                        achannel=achannel,
+                        acodec=input_acodec
+                    )
                 else:
                     raise RuntimeError(
                         'input_acodec or input_audio_stream_id was not set')
