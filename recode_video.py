@@ -6,7 +6,6 @@ import re
 import shutil
 import subprocess
 import sys
-from subprocess import PIPE, Popen, STDOUT
 
 
 def ensure_dir(path):
@@ -50,11 +49,13 @@ def main():
         help='If chosen, temp files are not deleted (for debugging)',
     )
     args = parser.parse_args()
-    working_dir = os.path.normpath(args.dir)
+    working_dir = os.path.abspath(args.dir)
 
     script_path = os.path.dirname(os.path.abspath(__file__))
-    ffmpeg_path = os.path.join(script_path, 'bin', 'ffmpeg.exe')
-    x264_path = os.path.join(script_path, 'bin', 'x264.exe')
+    ffmpeg_path = os.path.join(
+        script_path, 'bin', 'ffmpeg-20180421-e5ba5fa-win32-static.exe')
+    mp4box_path = os.path.join(script_path, 'bin', 'mp4box-71effb90.exe')
+    x264_path = os.path.join(script_path, 'bin', 'x264-r2901-7d0ff22.exe')
 
     temp_avs_path = os.path.join(working_dir, 'temp.avs')
 
@@ -76,6 +77,7 @@ def main():
     audio_folder = os.path.join(working_dir, 'audio')
 
     # Used temp paths
+    temp_264_without_audio = os.path.join(x264_folder, 'video.264')
     temp_video_without_audio = os.path.join(x264_folder, 'video.mp4')
     temp_audio_uncompressed = os.path.join(audio_folder, 'audio.wav')
 
@@ -101,9 +103,10 @@ def main():
             output_video = os.path.join(working_dir, 'mov', filename + '.mov')
             temp_video_path = os.path.join(working_dir, 'temp')
 
-            cmd = f'{ffmpeg_path} -i "{input_video}"'
-            p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
-            output = p.stdout.read().decode()
+            cmd = (ffmpeg_path, '-i', input_video)
+            ffmpeg_result = subprocess.run(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            output = ffmpeg_result.stdout.decode()
             sar_match = re.search(r'SAR (?P<sar>\d+:\d+)', output)
             if sar_match:
                 sar = sar_match.groupdict()['sar']
@@ -132,9 +135,15 @@ def main():
 
             shutil.move(input_video, temp_video_path)
             touch(input_video + '.lock')
-            cmd = f'{x264_path} --crf 15 --profile high --preset slow {sar} ' \
-                  f'-o "{temp_video_without_audio}" "{temp_avs_path}"'
-            subprocess.call(cmd)
+            subprocess.call(
+                (x264_path, '--crf', '15', '--profile', 'high',
+                 '--preset', 'slow', *(sar.split()),
+                 '-o', temp_264_without_audio, temp_avs_path)
+            )
+            subprocess.call(
+                (mp4box_path, '-add', temp_264_without_audio,
+                 temp_video_without_audio)
+            )
             os.remove(input_video + '.lock')
             shutil.move(temp_video_path, input_video)
 
@@ -155,18 +164,18 @@ def main():
             else:
                 audio_options = '-c:a copy'
 
-            cmd = f'{ffmpeg_path} -i "{input_video}" {audio_options} ' \
-                  f'"{temp_audio_uncompressed}"'
-            subprocess.call(cmd)
-
-            cmd = f'{ffmpeg_path} ' \
-                  f'-i "{temp_video_without_audio}" ' \
-                  f'-i "{temp_audio_uncompressed}" ' \
-                  f'-c:v copy -c:a copy "{output_video}"'
-            subprocess.call(cmd)
-
+            subprocess.call(
+                (ffmpeg_path, '-i', input_video, *(audio_options.split()),
+                 temp_audio_uncompressed)
+            )
+            subprocess.call(
+                (ffmpeg_path, '-i', temp_video_without_audio,
+                 '-i', temp_audio_uncompressed, '-c:v', 'copy', '-c:a', 'copy',
+                 output_video)
+            )
             shutil.move(input_video, avi_folder)
             if not args.save_temp_files:
+                os.remove(temp_264_without_audio)
                 os.remove(temp_video_without_audio)
                 os.remove(temp_audio_uncompressed)
                 shutil.rmtree(x264_folder)
